@@ -92,8 +92,12 @@ function checkApp(dir) {
 }
 
 // Start from an empty output directory so a stale file can never be handed in.
-rmSync(out, { recursive: true, force: true });
+// Clear the directory's CONTENTS, never the directory itself: in the grader
+// /output is a mounted volume, and deleting the mount point fails outright.
 mkdirSync(out, { recursive: true });
+for (const entry of readdirSync(out)) {
+  rmSync(join(out, entry), { recursive: true, force: true });
+}
 
 cpSync(join(here, 'app'), join(out, 'app'), { recursive: true });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
@@ -104,6 +108,13 @@ const appEntries = checkApp(join(out, 'app'));
 const shots = checkScreenshots(join(out, 'screenshots'));
 
 writeFileSync(join(out, 'dossier.json'), buildDossier(out, caps));
+
+// Read the dossier back: if the write produced nothing, fail here instead
+// of handing in an empty summary.
+const dossierPath = join(out, 'dossier.json');
+if (statSync(dossierPath).size === 0) {
+  fail('dossier.json came out empty — nothing to hand in');
+}
 
 // The whole output shares the platform's cap: 1,000 entries, 64 MiB.
 const outEntries = countEntries(out);
